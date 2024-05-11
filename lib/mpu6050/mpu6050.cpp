@@ -1,17 +1,26 @@
 #include "mpu6050.h" 
+#include <iostream>
 
 // Constructor
-MPU6050::MPU6050() {
+MPU6050::MPU6050(float sampleFrequency) : sampleFrequency(sampleFrequency) {
+        /*to use this:
+
+        try {
+            MPU6050 mpu(100.0f); // pass sample freq
+        } catch (const std::runtime_error& e) {
+            std::cerr << e.what() << std::endl;
+            return 1;
+        }
+        
+        */
     //----- OPEN THE I2C BUS -----
     char *filename = (char*)"/dev/i2c-2";
     if ((file_i2c = open(filename, O_RDWR)) < 0) {
-        std::cout << "Failed to open the i2c bus" << std::endl;
-        return 1;
+        throw std::runtime_error("Failed to open the i2c bus");
     }
 
     if (ioctl(file_i2c, I2C_SLAVE, MPU6050_ADDR) < 0) {
-        std::cout << "Failed to connect to the sensor" << std::endl;
-        return 1;
+        throw std::runtime_error("Failed to connect to the sensor");
     }
 
     //----- TURN ON THE MPU6050 -----
@@ -20,10 +29,9 @@ MPU6050::MPU6050() {
     length = 2;
 
     if (write(file_i2c, buffer, length) != length) {
-        std::cout << "Failed to wake up the sensor" << std::endl;
-        return 1;
+        throw std::runtime_error("Failed to wake up the sensor");
     }
-     // wait 1s and print that is ready
+    // wait 1s and print that is ready
     usleep(1000000);
     std::cout << "MPU6050 is ready" << std::endl;
 }
@@ -36,9 +44,12 @@ MPU6050::~MPU6050() {
     }
 }
 
-float MPU6050::getPitch() {
+MPU6050::FilteredData MPU6050::getFilteredData() {
     updateSensorData();
-    return kalPitch;
+    FilteredData data;
+    data.pitch = kalPitch;
+    data.roll = kalRoll;
+    return data;
 }
 
 void MPU6050::read_raw_data(int addr, int16_t &high, int16_t &low) {
@@ -58,7 +69,7 @@ void MPU6050::updateSensorData() {
     length = 6;
     if (write(file_i2c, buffer, 1) != 1 || read(file_i2c, buffer, length) != length) {
         std::cout << "Failed to read from the sensor" << std::endl;
-        return 1;
+        return;
     }
     int16_t accel_x = (buffer[0] << 8 | buffer[1]) - accel_offset_x;
     int16_t accel_y = (buffer[2] << 8 | buffer[3]) - accel_offset_y;
@@ -73,7 +84,7 @@ void MPU6050::updateSensorData() {
     length = 6;
     if (write(file_i2c, buffer, 1) != 1 || read(file_i2c, buffer, length) != length) {
         std::cout << "Failed to read from the sensor" << std::endl;
-        return 1;
+        return;
     }
     int16_t gyro_x = (buffer[0] << 8 | buffer[1]) - gyro_offset_x;
     int16_t gyro_y = (buffer[2] << 8 | buffer[3]) - gyro_offset_y;
