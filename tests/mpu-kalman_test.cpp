@@ -21,6 +21,8 @@ int main() {
 
             file << duration.count() << "," << data.pitch << "," << data.roll << "\n"; // Write the time, pitch, and roll to the file
 
+            //print pitch
+            std::cout << "Pitch: " << data.pitch << std::endl;
             usleep(1000000 / sampleFrequency); // Sleep for 1/sampleFrequency seconds (200Hz = 5ms, 100Hz = 10ms, etc.)
         }
     } catch (const std::runtime_error& e) {
