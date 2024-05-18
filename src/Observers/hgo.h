@@ -1,18 +1,12 @@
-#ifndef HGO_H
-#define HGO_H
+#include <utility>
 
-#include <vector>
+class HighGainObserver {
+private:
+    double x1, x2, x3;
+    const double mu1 = 3.0, mu2 = 3.0, mu3 = 1.0;
 
-class HGO {
-    private:
-        double t, x1, x2, x3;
-        double mu1, mu2, mu3;
-        double L;
-        double dt;
+public:
+    HighGainObserver();
 
-    public:
-        HGO(double mu1, double mu2, double mu3, double L, double dt);
-        std::pair<std::vector<double>, std::vector<double>> operator()(const std::vector<double>& u_signal);
+    std::pair<double, double> hgo(double u, double L, double dt);
 };
-
-#endif // HGO_H

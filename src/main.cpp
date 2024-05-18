@@ -1,6 +1,7 @@
 #include "../lib/mpu6050/mpu6050.h"
 #include "../src/Controllers/pid.h"
-//#include "../src/Controllers/pidlike.h"
+#include "../src/Controllers/pidlike.h"
+#include "../src/Observers/hgo.h"
 #include "../lib/motors/pwm.h"
 #include "../lib/motors/direction.h"
 #include <unistd.h>
@@ -43,14 +44,22 @@ int main()
     float min = -99.0;
     float max = 99.0;
 
+    std::ofstream file("main_out.csv");                         // Create an output file stream
+    file << "Time,Pitch,Error,dError,IntError,ControlSignal\n"; // Write the header to the file
+    
+    auto start = std::chrono::high_resolution_clock::now(); // Get the start time
+
+    // ******************************** OBSERVER INITIALIZATION ****************************************
+    std::cout << "Initializing Observer..." << std::endl;
+    HighGainObserver hgo;
+
+    float epsilon = 0.01; // 
+    std::cout << "Enter epsilon(hgo): ";
+    std::cin >> epsilon;
 
     // ********************************* CONTROLLERS INITIALIZATION *************************************
         // Initialize PID instance and output file
     std::cout << "Initializing Controller..." << std::endl;
-    std::ofstream file("main_out.csv");                         // Create an output file stream
-    file << "Time,Pitch,Error,dError,IntError,ControlSignal\n"; // Write the header to the file
-
-    auto start = std::chrono::high_resolution_clock::now(); // Get the start time
 
     // 1. ----------------------------- PID CONTROLLER ------------------------------------------
     // ... Create a PID controller with specific Kp, Ki, Kd values
@@ -69,11 +78,11 @@ int main()
     // -----------------------------------------------------------------------------------------
     // 2. ----------------------------- PID-LIKE (SMC) -----------------------------------------
 
-    // float L = 0.0; // bound of the perturbation
-    // std::cout << "Enter L: ";
-    // std::cin >> L;
+    float L = 0.0; // bound of the perturbation
+    std::cout << "Enter L: ";
+    std::cin >> L;
 
-    // PIDLike pidlike(L);
+    PIDLike pidlike(L);
     // -----------------------------------------------------------------------------------------
 
     std::cout << "Starting IMU..." << std::endl;
@@ -107,10 +116,13 @@ int main()
             auto dt = std::chrono::duration<double>(now - previousTime).count();
             previousTime = now; // update previousTime for the next loop iteration
 
+            //calculate derivative of error
+            auto [derror, y2] = hgo.hgo(error, epsilon, dt);
+
             // calculate control signal using PID controller
-            double controlSignal = pidController.calculate(error, dt);
+            //double controlSignal = pidController.calculate(error, derror, dt);
             // calculate control signal using PID-Like 
-            //double controlSignal = pidlike.calculate(error,dt);
+            double controlSignal = pidlike.calculate(error, derror,dt);
 
             // saturate the controlSignal
             if(controlSignal >= max){
@@ -142,13 +154,13 @@ int main()
             pwmB.setDutyCycle(dutyCycle);
 
             // get integral and derivative of the error
-            double integralError = pidController.getIntegral();
-            double derivativeError = pidController.getDerivative();
-            // double integralError = 0;
+            // double integralError = pidController.getIntegral();
+            // double derivativeError = pidController.getDerivative();
+            double integralError = 0;
             // double derivativeError = 0;
 
             // Write the time, pitch, error, controlSignal, integralError, and derivativeError to the file
-            file << duration.count() << "," << data.pitch << "," << error << "," << derivativeError << "," << integralError << "," << controlSignal << "\n";
+            file << duration.count() << "," << data.pitch << "," << error << "," << derror << "," << integralError << "," << controlSignal << "\n";
 
             usleep(1000000 / sampleFrequency); // Sleep for 1/sampleFrequency seconds (200Hz = 5ms, 100Hz = 10ms, etc.)
             
@@ -164,9 +176,10 @@ int main()
 
 /* command to compile:
 // PID
-g++ -o main main.cpp /home/debian/dev/twip-bbb/lib/mpu6050/mpu6050.cpp /home/debian/dev/twip-bbb/lib/mpu6050/kalman.cpp /home/debian/dev/twip-bbb/src/Controllers/pid.cpp /home/debian/dev/twip-bbb/lib/motors/pwm.cpp /home/debian/dev/twip-bbb/lib/motors/direction.cpp -lgpiodcxx && ./main
+g++ -o main main.cpp /home/debian/dev/twip-bbb/lib/mpu6050/mpu6050.cpp /home/debian/dev/twip-bbb/src/Observers/hgo.cpp /home/debian/dev/twip-bbb/lib/mpu6050/kalman.cpp /home/debian/dev/twip-bbb/src/Controllers/pid.cpp /home/debian/dev/twip-bbb/lib/motors/pwm.cpp /home/debian/dev/twip-bbb/lib/motors/direction.cpp -lgpiodcxx && ./main
 
 // PID-like
-g++ -o main main.cpp /home/debian/dev/twip-bbb/lib/mpu6050/mpu6050.cpp /home/debian/dev/twip-bbb/lib/mpu6050/kalman.cpp /home/debian/dev/twip-bbb/src/Controllers/pidlike.cpp /home/debian/dev/twip-bbb/lib/motors/pwm.cpp /home/debian/dev/twip-bbb/lib/motors/direction.cpp -lgpiodcxx && ./main
+g++ -o main main.cpp /home/debian/dev/twip-bbb/lib/mpu6050/mpu6050.cpp /home/debian/dev/twip-bbb/src/Observers/hgo.cpp /home/debian/dev/twip-bbb/lib/mpu6050/kalman.cpp /home/debian/dev/twip-bbb/src/Controllers/pidlike.cpp /home/debian/dev/twip-bbb/src/Controllers/pid.cpp /home/debian/dev/twip-bbb/lib/motors/pwm.cpp /home/debian/dev/twip-bbb/lib/motors/direction.cpp -lgpiodcxx && ./main
+
 
 */

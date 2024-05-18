@@ -6,15 +6,13 @@ class PID
 private:
     double Kp, Ki, Kd;
     double ierr;
-    double previous_error;
-    double derror;
     bool firstRun;
 
 public:
     // Constructor
     PID(double Kp, double Ki, double Kd);
     // Calculate control signal
-    double calculate(double error, double dt);
+    double calculate(double error, double derror, double dt);
     // get derivative error
     double getDerivative() const;
     // get integral error

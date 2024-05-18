@@ -12,15 +12,15 @@ private:
     double L;
     double z;
     double z_dot;
-    double previous_error;
-    double derror;
+    // double previous_error;
+    // double derror;
 
 public:
     // Constructor
     PIDLike(double L);
 
     // Calculate control signal
-    double calculate(double error, double dt);
+    double calculate(double error, double derror, double dt);
 };
 
 #endif /* PIDLIKE_H */
